@@ -22,13 +22,31 @@ permissions:
   contents: read
 
 jobs:
-  test:
-    timeout-minutes: 5
+  detect-changes:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
     outputs:
-      version_bumped: ${{ steps.version.outputs.bumped }}
+      templates: ${{ steps.filter.outputs.changes }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            python311-node24: 'src/python311-node24/**'
+            python313-node24: 'src/python313-node24/**'
+
+  test:
+    needs: [detect-changes]
+    if: always() && (needs.detect-changes.result == 'skipped' || needs.detect-changes.outputs.templates != '[]')
+    timeout-minutes: 5
     # macos-26 runners do not support docker desktop nested virtualization
     # see https://github.com/marketplace/actions/setup-docker-desktop-macos#supported-runners
     runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        template: ${{ fromJSON(needs.detect-changes.outputs.templates || '["python311-node24", "python313-node24"]') }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -36,27 +54,11 @@ jobs:
       - uses: actions/setup-node@v6
         with:
           node-version: 24
-      - id: version
-        if: github.event_name == 'push'
-        env:
-          BEFORE_SHA: ${{ github.event.before }}
-        run: |
-          template=src/python311-node24/devcontainer-template.json
-          current=$(jq -er '.version | strings' "$template")
-          previous=
-          if [[ ! "$BEFORE_SHA" =~ ^0+$ ]]; then
-            previous=$(git show "$BEFORE_SHA:$template" | jq -er '.version | strings')
-          fi
-          bumped=false
-          if [[ -z "$previous" ]] || [[ "$current" != "$previous" && "$(printf '%s\n%s\n' "$previous" "$current" | sort -V | tail -n 1)" == "$current" ]]; then
-            bumped=true
-          fi
-          printf 'bumped=%s\n' "$bumped" >> "$GITHUB_OUTPUT"
       - run: npm install --global @devcontainers/cli@0.89.0
-      - run: bash tests/test-python311-node24.sh
+      - run: bash tests/test-${{ matrix.template }}.sh
 
   publish:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.outputs.version_bumped == 'true'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: test
     timeout-minutes: 1
     runs-on: ubuntu-latest

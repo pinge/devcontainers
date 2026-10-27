@@ -1,10 +1,11 @@
 # 🚢 devcontainers
 
-Dev Container templates for common development environments.
+Dev Container templates for common development environments
 
 ## Templates
 
-- 🐍 ✳️ [`python311-node24`](src/python311-node24/README.md): Python 3.11, Node.js 24, Claude, Codex, and Muse.
+- 🐍 ✳️ [`python311-node24`](src/python311-node24/README.md) Python 3.11 and Node.js 24
+- 🐍 ✳️ [`python313-node24`](src/python313-node24/README.md) Python 3.13 and Node.js 24
 
 ## Features
 
@@ -22,7 +23,7 @@ Dev Container templates for common development environments.
 npm install --global @devcontainers/cli
 
 devcontainer templates apply \
-  --template-id ghcr.io/pinge/devcontainers/python311-node24:latest \
+  --template-id ghcr.io/pinge/devcontainers/python313-node24:latest \
   --workspace-folder .
 ```
 
@@ -30,7 +31,7 @@ or
 
 ```sh
 npx --yes --package @devcontainers/cli devcontainer templates apply \
-  --template-id ghcr.io/pinge/devcontainers/python311-node24:latest \
+  --template-id ghcr.io/pinge/devcontainers/python313-node24:latest \
   --workspace-folder .
 ```
 
