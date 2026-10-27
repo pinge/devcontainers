@@ -7,7 +7,7 @@ printf 'NodeJS %s\n' "$(node --version)"
 pdm --version
 
 printf 'NPM %s\n' "$(npm --version)"
-npm install -g @openai/codex >/dev/null
+npm_config_update_notifier=false npm install -g @openai/codex >/dev/null
 
 MUSE_INSTALLER="$(mktemp)"
 curl -fsSL https://dev.meta.ai/install.sh -o "$MUSE_INSTALLER"
