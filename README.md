@@ -4,8 +4,8 @@ Dev Container templates for common development environments.
 
 ## Templates
 
-- 🐍 ✳️ [`python311-node24`](src/python311-node24/README.md): Python 3.11, Node.js 24, Claude, Codex, and Muse
-- 🐍 ✳️ [`python313-node24`](src/python313-node24/README.md): Python 3.13, Node.js 24, Claude, Codex, and Muse
+- 🐍 ✳️ [`python311-node24`](src/python311-node24/README.md) Python 3.11, Node.js 24, Claude, Codex, and Muse
+- 🐍 ✳️ [`python313-node24`](src/python313-node24/README.md) Python 3.13, Node.js 24, Claude, Codex, and Muse
 
 ## Features
 
