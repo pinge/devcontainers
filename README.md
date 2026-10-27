@@ -1,6 +1,6 @@
 # 🚢 devcontainers
 
-Dev Container templates for common development environments.
+Dev Container templates for common development environments
 
 ## Templates
 
