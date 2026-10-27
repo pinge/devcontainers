@@ -1,9 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
-TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../src/python313-node24" && pwd)"
+TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../src/python3-node24" && pwd)"
 TEMP_DIR="${TMPDIR:-/tmp}"
-TEST_DIR="$(mktemp -d "${TEMP_DIR%/}/test-vsc-devcontainer-python313-node24-XXXXXX")"
+PYTHON_IMAGE_VERSION="${1:-3.11}"
+case "$PYTHON_IMAGE_VERSION" in
+  3.11|3.12|3.13|3.14|dev-3.15) ;;
+  *) printf 'Unsupported Python version: %s\n' "$PYTHON_IMAGE_VERSION" >&2; exit 2 ;;
+esac
+EXPECTED_PYTHON="${PYTHON_IMAGE_VERSION#dev-}"
+TEST_DIR="$(mktemp -d "${TEMP_DIR%/}/test-vsc-devcontainer-python3-node24-XXXXXX")"
 TEST_NAME="$(basename "$TEST_DIR" | tr '[:upper:]' '[:lower:]')"
 
 is_test_image_repository() {
@@ -105,6 +111,10 @@ trap cleanup EXIT
 
 # test template configuration, image build, and container launch
 cp -R "$TEMPLATE_DIR/." "$TEST_DIR/"
+DOCKERFILE="$TEST_DIR/.devcontainer/Dockerfile"
+DOCKERFILE_CONTENT="$(<"$DOCKERFILE")"
+DOCKERFILE_CONTENT="${DOCKERFILE_CONTENT//\$\{templateOption:python\}/$PYTHON_IMAGE_VERSION}"
+printf '%s\n' "$DOCKERFILE_CONTENT" > "$DOCKERFILE"
 mkdir -p "$TEST_DIR/.devcontainer/.claude"
 printf '{}\n' > "$TEST_DIR/.devcontainer/.claude/.claude.json"
 devcontainer read-configuration --workspace-folder "$TEST_DIR" >/dev/null
@@ -121,11 +131,11 @@ EXPECTED_TZ="$(sed -n 's/^TZ=//p' "$TEST_DIR/.devcontainer/.env")"
 test -n "$EXPECTED_TZ"
 # assert runtime versions, configuration files, and symlinks
 assert_runtime() {
-  devcontainer exec --workspace-folder "$TEST_DIR" env "EXPECTED_TZ=$EXPECTED_TZ" bash -c '
+  devcontainer exec --workspace-folder "$TEST_DIR" env "EXPECTED_TZ=$EXPECTED_TZ" "EXPECTED_PYTHON=$EXPECTED_PYTHON" bash -c '
 set -euo pipefail
 
 test "$(id -un)" = vscode
-python -c "import sys; assert sys.version_info[:2] == (3, 13)"
+python -c "import os, sys; assert \".\".join(map(str, sys.version_info[:2])) == os.environ[\"EXPECTED_PYTHON\"]"
 node -e "if (Number(process.versions.node.split(\".\")[0]) !== 24) process.exit(1)"
 [[ "$(pdm --version)" == *2.29.3* ]]
 command -v claude >/dev/null
@@ -165,3 +175,5 @@ docker stop "$CONTAINER_ID" >/dev/null
 devcontainer up --workspace-folder "$TEST_DIR"
 devcontainer run-user-commands --workspace-folder "$TEST_DIR"
 assert_runtime
+
+

@@ -1,7 +1,7 @@
-# 🚢 python313-node24
+# 🚢 python3-node24
 
-- 🐳 `mcr.microsoft.com/devcontainers/python:3.13-bookworm` (arm64)
-- 🐍 Python 3.13
+- 🐳 `mcr.microsoft.com/devcontainers/python:<version>-bookworm` (arm64)
+- 🐍 Python 3.11, 3.12, 3.13, 3.14, or dev-3.15
 - 📦 PDM 2.29.3
 - ✳️ Node.js 24
 - 🤖 Claude, Codex, and Muse
@@ -15,7 +15,8 @@
 npm install --global @devcontainers/cli
 
 devcontainer templates apply \
-  --template-id ghcr.io/pinge/devcontainers/python313-node24:latest \
+  --template-id ghcr.io/pinge/devcontainers/python3-node24:latest \
+  --template-args '{"python":"3.11"}' \
   --workspace-folder .
 ```
 
@@ -23,6 +24,7 @@ or
 
 ```sh
 npx --yes --package @devcontainers/cli devcontainer templates apply \
-  --template-id ghcr.io/pinge/devcontainers/python313-node24:latest \
+  --template-id ghcr.io/pinge/devcontainers/python3-node24:latest \
+  --template-args '{"python":"3.11"}' \
   --workspace-folder .
 ```

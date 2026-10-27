@@ -8,8 +8,8 @@ mkdir -p \
   "${workspace_folder}/.devcontainer/.codex" \
   "${workspace_folder}/.devcontainer/.muse-data/sessions"
 
-# Reads the zone name from /etc/localtime on the host,
-# with an unparseable time zone falling back to UTC
+# reads the zone name from /etc/localtime on the host,
+# with an unparseable time zone falling back to utc
 container_env_file="${workspace_folder}/.devcontainer/.env"
 host_tz=""
 if link="$(readlink /etc/localtime 2>/dev/null)" && [[ "$link" == *zoneinfo/* ]]; then
