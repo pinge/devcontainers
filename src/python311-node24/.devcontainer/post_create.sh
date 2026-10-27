@@ -4,15 +4,10 @@ set -euo pipefail
 python --version
 printf 'NodeJS %s\n' "$(node --version)"
 
-# Use PDM's Python installer to avoid the standalone binary's glibc requirement.
-# https://pdm-project.org/latest/#install-via-python-script
-curl -fsSL https://pdm-project.org/install-pdm.py | python - -v 2.29.3 >/dev/null
-hash -r
 pdm --version
 
-npm install -g npm@latest >/dev/null
 printf 'NPM %s\n' "$(npm --version)"
-npm install -g @openai/codex >/dev/null
+npm_config_update_notifier=false npm install -g @openai/codex >/dev/null
 
 MUSE_INSTALLER="$(mktemp)"
 curl -fsSL https://dev.meta.ai/install.sh -o "$MUSE_INSTALLER"

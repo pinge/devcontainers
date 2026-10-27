@@ -2,8 +2,23 @@
 set -euo pipefail
 
 TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../src/python315-node24" && pwd)"
-TEST_DIR="$(mktemp -d)"
+TEMP_DIR="${TMPDIR:-/tmp}"
+TEST_DIR="$(mktemp -d "${TEMP_DIR%/}/test-vsc-devcontainer-python315-node24-XXXXXX")"
 TEST_NAME="$(basename "$TEST_DIR" | tr '[:upper:]' '[:lower:]')"
+
+is_test_image_repository() {
+  local repository="$1"
+  local image_hash
+
+  [[ "$repository" == "vsc-${TEST_NAME}-"* ]] || return 1
+  image_hash="${repository#vsc-${TEST_NAME}-}"
+  case "$image_hash" in
+    *-features-uid) image_hash="${image_hash%-features-uid}" ;;
+    *-features) image_hash="${image_hash%-features}" ;;
+    *-uid) image_hash="${image_hash%-uid}" ;;
+  esac
+  [[ "$image_hash" =~ ^[[:xdigit:]]{64}$ ]]
+}
 
 cleanup() {
   local status=$?
@@ -13,11 +28,13 @@ cleanup() {
   local container_image
   local container_repository
   local container_workspace
+  local container_running
   local image_ref
   local image_repository
   local image_info
   local image_id
   local image_tags
+  local image_containers
 
   trap - EXIT
   while IFS= read -r container_id; do
@@ -33,11 +50,21 @@ cleanup() {
       continue
     fi
     container_repository="${container_image%:*}"
-    if [[ "$container_repository" == "vsc-${TEST_NAME}-"*-features || "$container_repository" == "vsc-${TEST_NAME}-"*-features-uid ]]; then
-      if docker stop "$container_id" >/dev/null; then
-        docker rm "$container_id" >/dev/null || status=$?
-      else
-        status=$?
+    if is_test_image_repository "$container_repository"; then
+      if ! container_running="$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null)"; then
+        status=1
+        continue
+      fi
+      if [[ "$container_running" == true ]] && ! docker stop "$container_id" >/dev/null; then
+        status=1
+        continue
+      fi
+      if ! container_running="$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null)" || [[ "$container_running" != false ]]; then
+        status=1
+        continue
+      fi
+      if ! docker rm "$container_id" >/dev/null || docker container inspect "$container_id" >/dev/null 2>&1; then
+        status=1
       fi
     else
       status=1
@@ -56,12 +83,16 @@ cleanup() {
       status=1
       continue
     fi
+    if ! image_containers="$(docker ps -aq --filter "ancestor=$image_id" 2>/dev/null)" || [[ -n "$image_containers" ]]; then
+      status=1
+      continue
+    fi
     docker image rm "$image_ref" >/dev/null || status=$?
   done < <(
     docker image ls --format '{{.Repository}}:{{.Tag}}' 2>/dev/null |
       while IFS= read -r image_ref; do
         image_repository="${image_ref%:*}"
-        if [[ "$image_repository" == "vsc-${TEST_NAME}-"*-features || "$image_repository" == "vsc-${TEST_NAME}-"*-features-uid ]]; then
+        if is_test_image_repository "$image_repository"; then
           printf '%s\n' "$image_ref"
         fi
       done
@@ -79,6 +110,10 @@ printf '{}\n' > "$TEST_DIR/.devcontainer/.claude/.claude.json"
 devcontainer read-configuration --workspace-folder "$TEST_DIR" >/dev/null
 devcontainer build --workspace-folder "$TEST_DIR"
 devcontainer up --workspace-folder "$TEST_DIR"
+CONTAINER_ID="$(docker ps -q --filter "label=devcontainer.local_folder=$TEST_DIR")"
+test -n "$CONTAINER_ID"
+test "$(printf '%s\n' "$CONTAINER_ID" | wc -l)" -eq 1
+docker rename "$CONTAINER_ID" "$TEST_NAME"
 
 # assert time zone
 EXPECTED_TZ="$(sed -n 's/^TZ=//p' "$TEST_DIR/.devcontainer/.env")"
@@ -122,8 +157,8 @@ IFS='|' read -r CONTAINER_NAME CONTAINER_IMAGE CONTAINER_WORKSPACE <<< "$CONTAIN
 CONTAINER_NAME="${CONTAINER_NAME#/}"
 CONTAINER_REPOSITORY="${CONTAINER_IMAGE%:*}"
 [[ "$CONTAINER_WORKSPACE" == "$TEST_DIR" ]]
-[[ "$CONTAINER_NAME" =~ ^[[:alnum:]][[:alnum:]_.-]*$ ]]
-[[ "$CONTAINER_REPOSITORY" == "vsc-${TEST_NAME}-"*-features || "$CONTAINER_REPOSITORY" == "vsc-${TEST_NAME}-"*-features-uid ]]
+[[ "$CONTAINER_NAME" == "$TEST_NAME" ]]
+is_test_image_repository "$CONTAINER_REPOSITORY"
 docker stop "$CONTAINER_ID" >/dev/null
 
 # assert setup and runtime state after restart
