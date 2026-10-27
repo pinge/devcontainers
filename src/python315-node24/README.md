@@ -8,3 +8,21 @@
 - 🔐 Credentials and sessions survive container rebuilds
 - 🌍 Container inherits the host time zone
 - ⚙️ Sane VS Code defaults
+
+## Usage
+
+```sh
+npm install --global @devcontainers/cli
+
+devcontainer templates apply \
+  --template-id ghcr.io/pinge/devcontainers/python315-node24:latest \
+  --workspace-folder .
+```
+
+or
+
+```sh
+npx --yes --package @devcontainers/cli devcontainer templates apply \
+  --template-id ghcr.io/pinge/devcontainers/python315-node24:latest \
+  --workspace-folder .
+```
