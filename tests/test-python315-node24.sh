@@ -2,7 +2,8 @@
 set -euo pipefail
 
 TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../src/python315-node24" && pwd)"
-TEST_DIR="$(mktemp -d "${TMPDIR:-/tmp}/test-vsc-devcontainer-python315-node24-XXXXXX")"
+TEMP_DIR="${TMPDIR:-/tmp}"
+TEST_DIR="$(mktemp -d "${TEMP_DIR%/}/test-vsc-devcontainer-python315-node24-XXXXXX")"
 TEST_NAME="$(basename "$TEST_DIR" | tr '[:upper:]' '[:lower:]')"
 
 is_test_image_repository() {
@@ -27,11 +28,13 @@ cleanup() {
   local container_image
   local container_repository
   local container_workspace
+  local container_running
   local image_ref
   local image_repository
   local image_info
   local image_id
   local image_tags
+  local image_containers
 
   trap - EXIT
   while IFS= read -r container_id; do
@@ -48,10 +51,20 @@ cleanup() {
     fi
     container_repository="${container_image%:*}"
     if is_test_image_repository "$container_repository"; then
-      if docker stop "$container_id" >/dev/null; then
-        docker rm "$container_id" >/dev/null || status=$?
-      else
-        status=$?
+      if ! container_running="$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null)"; then
+        status=1
+        continue
+      fi
+      if [[ "$container_running" == true ]] && ! docker stop "$container_id" >/dev/null; then
+        status=1
+        continue
+      fi
+      if ! container_running="$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null)" || [[ "$container_running" != false ]]; then
+        status=1
+        continue
+      fi
+      if ! docker rm "$container_id" >/dev/null || docker container inspect "$container_id" >/dev/null 2>&1; then
+        status=1
       fi
     else
       status=1
@@ -67,6 +80,10 @@ cleanup() {
     image_id="${image_info%%|*}"
     image_tags="${image_info#*|}"
     if [[ ! "$image_id" =~ ^sha256:[[:xdigit:]]{64}$ || " $image_tags " != *" $image_ref "* ]]; then
+      status=1
+      continue
+    fi
+    if ! image_containers="$(docker ps -aq --filter "ancestor=$image_id" 2>/dev/null)" || [[ -n "$image_containers" ]]; then
       status=1
       continue
     fi
