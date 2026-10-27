@@ -1,7 +1,7 @@
 # 🚢 python3-node24
 
-- 🐳 `mcr.microsoft.com/devcontainers/python:${templateOption:python}-bookworm` (arm64)
-- 🐍 Python ${templateOption:python}
+- 🐳 `mcr.microsoft.com/devcontainers/python:<version>-bookworm` (arm64)
+- 🐍 Python 3.11, 3.12, 3.13, 3.14, or dev-3.15
 - 📦 PDM 2.29.3
 - ✳️ Node.js 24
 - 🤖 Claude, Codex, and Muse

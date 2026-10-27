@@ -4,12 +4,11 @@ Dev Container templates for common development environments
 
 ## Templates
 
-- 🐍 ✳️ [`python311-node24`](src/python311-node24/README.md) Python 3.11 and Node.js 24
-- 🐍 ✳️ [`python313-node24`](src/python313-node24/README.md) Python 3.13 and Node.js 24
-- 🐍 ✳️ [`python315-node24`](src/python315-node24/README.md) Python 3.15 and Node.js 24
+- 🐍 ✳️ [`python3-node24`](src/python3-node24/README.md) Python 3 and Node.js 24
 
 ## Features
 
+- 🐍 Python 3.11, 3.12, 3.13, 3.14, or dev-3.15
 - 🤖 Claude, Codex, and Muse
 - 🔐 Credentials and sessions survive container rebuilds
 - 🌍 Container inherits the host time zone
@@ -24,7 +23,8 @@ Dev Container templates for common development environments
 npm install --global @devcontainers/cli
 
 devcontainer templates apply \
-  --template-id ghcr.io/pinge/devcontainers/python313-node24:latest \
+  --template-id ghcr.io/pinge/devcontainers/python3-node24:latest \
+  --template-args '{"python":"3.13"}' \
   --workspace-folder .
 ```
 
@@ -32,9 +32,12 @@ or
 
 ```sh
 npx --yes --package @devcontainers/cli devcontainer templates apply \
-  --template-id ghcr.io/pinge/devcontainers/python313-node24:latest \
+  --template-id ghcr.io/pinge/devcontainers/python3-node24:latest \
+  --template-args '{"python":"3.13"}' \
   --workspace-folder .
 ```
+
+`--template-args` can be omitted, `3.11` is the default Python version.
 
 ### 2. Using supporting tools
 
