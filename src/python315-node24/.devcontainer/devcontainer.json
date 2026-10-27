@@ -1,6 +1,8 @@
 {
   "name": "python315-node24-arm64",
-  "image": "mcr.microsoft.com/devcontainers/python:dev-3.15-bookworm",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
   "containerEnv": {
     "PDM_IGNORE_SAVED_PYTHON": "1",
     "DISABLE_AUTOUPDATER": "1"
@@ -26,7 +28,8 @@
   },
   "features": {
     "ghcr.io/devcontainers/features/node:1": {
-      "version": "24"
+      "version": "24",
+      "npmVersion": "latest"
     },
     "ghcr.io/devcontainers/features/github-cli:1": {},
     "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
