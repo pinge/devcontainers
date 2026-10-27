@@ -6,6 +6,7 @@ Dev Container templates for common development environments
 
 - 🐍 ✳️ [`python311-node24`](src/python311-node24/README.md) Python 3.11 and Node.js 24
 - 🐍 ✳️ [`python313-node24`](src/python313-node24/README.md) Python 3.13 and Node.js 24
+- 🐍 ✳️ [`python315-node24`](src/python315-node24/README.md) Python 3.15 and Node.js 24
 
 ## Features
 

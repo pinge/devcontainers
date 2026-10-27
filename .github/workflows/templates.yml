@@ -35,6 +35,7 @@ jobs:
           filters: |
             python311-node24: 'src/python311-node24/**'
             python313-node24: 'src/python313-node24/**'
+            python315-node24: 'src/python315-node24/**'
 
   test:
     needs: [detect-changes]
@@ -46,7 +47,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: ${{ fromJSON(needs.detect-changes.outputs.templates || '["python311-node24", "python313-node24"]') }}
+        template: ${{ fromJSON(needs.detect-changes.outputs.templates || '["python311-node24", "python313-node24", "python315-node24"]') }}
     steps:
       - uses: actions/checkout@v6
         with:
