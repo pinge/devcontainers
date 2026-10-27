@@ -1,0 +1,74 @@
+name: 🚢 Dev Container Templates
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'src/**'
+      - 'tests/**'
+      - 'README.md'
+  push:
+    branches:
+      - main
+    paths:
+      - 'src/**'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    timeout-minutes: 5
+    outputs:
+      version_bumped: ${{ steps.version.outputs.bumped }}
+    # macos-26 runners do not support docker desktop nested virtualization
+    # see https://github.com/marketplace/actions/setup-docker-desktop-macos#supported-runners
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - id: version
+        if: github.event_name == 'push'
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          template=src/python311-node24/devcontainer-template.json
+          current=$(jq -er '.version | strings' "$template")
+          previous=
+          if [[ ! "$BEFORE_SHA" =~ ^0+$ ]]; then
+            previous=$(git show "$BEFORE_SHA:$template" | jq -er '.version | strings')
+          fi
+          bumped=false
+          if [[ -z "$previous" ]] || [[ "$current" != "$previous" && "$(printf '%s\n%s\n' "$previous" "$current" | sort -V | tail -n 1)" == "$current" ]]; then
+            bumped=true
+          fi
+          printf 'bumped=%s\n' "$bumped" >> "$GITHUB_OUTPUT"
+      - run: npm install --global @devcontainers/cli@0.89.0
+      - run: bash tests/test-python311-node24.sh
+
+  publish:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.outputs.version_bumped == 'true'
+    needs: test
+    timeout-minutes: 1
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+      - uses: devcontainers/action@v1.4.4
+        with:
+          publish-templates: 'true'
+          base-path-to-templates: './src'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
