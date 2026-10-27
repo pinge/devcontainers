@@ -36,9 +36,7 @@ jobs:
           base: ${{ github.event_name == 'push' && github.event.before || '' }}
           ref: ${{ github.ref }}
           filters: |
-            python311-node24: 'src/python311-node24/**'
-            python313-node24: 'src/python313-node24/**'
-            python315-node24: 'src/python315-node24/**'
+            python3-node24: 'src/python3-node24/**'
 
   test:
     needs: [detect-changes]
@@ -48,7 +46,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        template: ${{ fromJSON(needs.detect-changes.outputs.templates) }}
+        python: ["3.11", "3.12", "3.13", "3.14", "dev-3.15"]
     steps:
       - uses: actions/checkout@v6
         with:
@@ -57,7 +55,7 @@ jobs:
         with:
           node-version: 24
       - run: npm install --global @devcontainers/cli@0.89.0
-      - run: bash tests/test-${{ matrix.template }}.sh
+      - run: bash tests/test-python3-node-24.sh "${{ matrix.python }}"
 
   publish:
     if: ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') && needs.detect-changes.outputs.templates != '[]' && needs.detect-changes.outputs.templates != ''
