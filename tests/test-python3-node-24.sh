@@ -5,7 +5,7 @@ TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../src/python3-node24" && pwd
 TEMP_DIR="${TMPDIR:-/tmp}"
 PYTHON_IMAGE_VERSION="${1:-3.11}"
 case "$PYTHON_IMAGE_VERSION" in
-  3.11|3.13|dev-3.15) ;;
+  3.11|3.12|3.13|3.14|dev-3.15) ;;
   *) printf 'Unsupported Python version: %s\n' "$PYTHON_IMAGE_VERSION" >&2; exit 2 ;;
 esac
 EXPECTED_PYTHON="${PYTHON_IMAGE_VERSION#dev-}"
