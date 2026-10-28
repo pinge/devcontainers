@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+WORKSPACE_DIR="$(cd "$CONFIG_DIR/.." && pwd)"
+sudo mkdir -p "$WORKSPACE_DIR/.venv"
+sudo chown vscode:vscode "$WORKSPACE_DIR/.venv"
+
 python --version
 printf 'NodeJS %s\n' "$(node --version)"
 
@@ -20,8 +25,6 @@ MUSE_ALIAS="alias muse='muse --disable-sandbox'"
 if ! grep -qF "$MUSE_ALIAS" /home/vscode/.bashrc 2>/dev/null; then
   printf '\n%s\n' "$MUSE_ALIAS" >> /home/vscode/.bashrc
 fi
-
-CONFIG_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo ".devcontainer time zone: $TZ"
 

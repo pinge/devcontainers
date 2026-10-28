@@ -26,6 +26,25 @@ is_test_image_repository() {
   [[ "$image_hash" =~ ^[[:xdigit:]]{64}$ ]]
 }
 
+get_venv_volume() {
+  local container_id="$1"
+  local mounts
+  local mount_type
+  local mount_name
+  local mount_target
+  local volume=""
+
+  mounts="$(docker inspect --format '{{range .Mounts}}{{.Type}}|{{.Name}}|{{.Destination}}{{println}}{{end}}' "$container_id")" || return 1
+  while IFS='|' read -r mount_type mount_name mount_target; do
+    if [[ "$mount_type" == volume && "$mount_target" == */.venv ]]; then
+      [[ -z "$volume" && "$mount_name" =~ ^[[:alnum:]]+-venv$ ]] || return 1
+      volume="$mount_name"
+    fi
+  done <<< "$mounts"
+  [[ -n "$volume" ]] || return 1
+  printf '%s\n' "$volume"
+}
+
 cleanup() {
   local status=$?
   local container_id
@@ -35,6 +54,9 @@ cleanup() {
   local container_repository
   local container_workspace
   local container_running
+  local container_venv_volume
+  local volume_containers
+  local volume_name
   local image_ref
   local image_repository
   local image_info
@@ -57,6 +79,10 @@ cleanup() {
     fi
     container_repository="${container_image%:*}"
     if is_test_image_repository "$container_repository"; then
+      if ! container_venv_volume="$(get_venv_volume "$container_id" 2>/dev/null)"; then
+        status=1
+        continue
+      fi
       if ! container_running="$(docker inspect --format '{{.State.Running}}' "$container_id" 2>/dev/null)"; then
         status=1
         continue
@@ -70,6 +96,18 @@ cleanup() {
         continue
       fi
       if ! docker rm "$container_id" >/dev/null || docker container inspect "$container_id" >/dev/null 2>&1; then
+        status=1
+        continue
+      fi
+      if ! volume_containers="$(docker ps -aq --filter "volume=$container_venv_volume" 2>/dev/null)" || [[ -n "$volume_containers" ]]; then
+        status=1
+        continue
+      fi
+      if ! volume_name="$(docker volume inspect --format '{{.Name}}' "$container_venv_volume" 2>/dev/null)" || [[ "$volume_name" != "$container_venv_volume" ]]; then
+        status=1
+        continue
+      fi
+      if ! docker volume rm "$container_venv_volume" >/dev/null || docker volume inspect "$container_venv_volume" >/dev/null 2>&1; then
         status=1
       fi
     else
@@ -115,6 +153,16 @@ DOCKERFILE="$TEST_DIR/.devcontainer/Dockerfile"
 DOCKERFILE_CONTENT="$(<"$DOCKERFILE")"
 DOCKERFILE_CONTENT="${DOCKERFILE_CONTENT//\$\{templateOption:python\}/$PYTHON_IMAGE_VERSION}"
 printf '%s\n' "$DOCKERFILE_CONTENT" > "$DOCKERFILE"
+# test dependency installation and host virtualenv isolation
+mkdir -p "$TEST_DIR/.venv"
+printf 'host venv\n' > "$TEST_DIR/.venv/host-marker"
+cat > "$TEST_DIR/pyproject.toml" <<'TOML'
+[project]
+name = "venv-isolation-test"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = ["idna==3.10"]
+TOML
 mkdir -p "$TEST_DIR/.devcontainer/.claude"
 printf '{}\n' > "$TEST_DIR/.devcontainer/.claude/.claude.json"
 devcontainer read-configuration --workspace-folder "$TEST_DIR" >/dev/null
@@ -129,15 +177,18 @@ docker rename "$CONTAINER_ID" "$TEST_NAME"
 EXPECTED_TZ="$(sed -n 's/^TZ=//p' "$TEST_DIR/.devcontainer/.env")"
 
 test -n "$EXPECTED_TZ"
-# assert runtime versions, configuration files, and symlinks
+# assert runtime versions, virtualenv, configuration files, and symlinks
 assert_runtime() {
   devcontainer exec --workspace-folder "$TEST_DIR" env "EXPECTED_TZ=$EXPECTED_TZ" "EXPECTED_PYTHON=$EXPECTED_PYTHON" bash -c '
 set -euo pipefail
 
 test "$(id -un)" = vscode
+test -w .venv
+test ! -e .venv/host-marker
 python -c "import os, sys; assert \".\".join(map(str, sys.version_info[:2])) == os.environ[\"EXPECTED_PYTHON\"]"
 node -e "if (Number(process.versions.node.split(\".\")[0]) !== 24) process.exit(1)"
 [[ "$(pdm --version)" == *2.29.3* ]]
+pdm run python -c "import idna, sys; assert idna.__version__ == \"3.10\"; assert sys.prefix.endswith(\"/.venv\")"
 command -v claude >/dev/null
 claude --version
 command -v codex >/dev/null
@@ -156,7 +207,10 @@ cmp -s "$workspace_root/.devcontainer/muse/settings.json" /home/vscode/.config/m
 '
 }
 
+devcontainer exec --workspace-folder "$TEST_DIR" pdm install --no-self
 assert_runtime
+test -f "$TEST_DIR/.venv/host-marker"
+test ! -e "$TEST_DIR/.venv/pyvenv.cfg"
 
 # assert container name, workspace label, and image name
 CONTAINER_ID="$(docker ps -q --filter "label=devcontainer.local_folder=$TEST_DIR")"
