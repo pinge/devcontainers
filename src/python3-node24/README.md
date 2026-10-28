@@ -6,6 +6,7 @@
 - ✳️ Node.js 24
 - 🤖 Claude, Codex, and Muse
 - 🔐 Credentials and sessions survive container rebuilds
+- 🛡️ Seamless `.venv` isolation between host and container
 - 🌍 Container inherits the host time zone
 - ⚙️ Sane VS Code defaults
 

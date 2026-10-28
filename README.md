@@ -11,6 +11,7 @@ Dev Container templates for common development environments
 - 🐍 Python 3.11, 3.12, 3.13, 3.14, or dev-3.15
 - 🤖 Claude, Codex, and Muse
 - 🔐 Credentials and sessions survive container rebuilds
+- 🛡️ Seamless `.venv` isolation between host and container
 - 🌍 Container inherits the host time zone
 - ⚙️ Sane VS Code defaults
 

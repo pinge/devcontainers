@@ -4,6 +4,7 @@
     "dockerfile": "Dockerfile"
   },
   "containerEnv": {
+    "PDM_VENV_IN_PROJECT": "1",
     "PDM_IGNORE_SAVED_PYTHON": "1",
     "DISABLE_AUTOUPDATER": "1"
   },
@@ -12,15 +13,10 @@
     "--env-file",
     "${localWorkspaceFolder}/.devcontainer/.env"
   ],
-  // change runArgs if you have permission issues running the muse agent with -disable-sandbox
-  // "runArgs": [
-  //   "--env-file",
-  //   "${localWorkspaceFolder}/.devcontainer/.env",
-  //   "--security-opt",
-  //   "seccomp=unconfined",
-  //   "--security-opt",
-  //   "apparmor=unconfined"
-  // ],
+  // isolate the devcontainer virtualenv from the host workspace .venv (e.g. macos host with linux container)
+  "mounts": [
+    "source=${devcontainerId}-venv,target=${containerWorkspaceFolder}/.venv,type=volume,volume-nocopy"
+  ],
   "remoteUser": "vscode",
   "remoteEnv": {
     "CLAUDE_CONFIG_DIR": "${containerWorkspaceFolder}/.devcontainer/.claude",
@@ -46,6 +42,7 @@
         "MermaidChart.vscode-mermaid-chart"
       ],
       "settings": {
+        "python.defaultInterpreterPath": "${workspaceFolder}/.venv",
         "editor.formatOnPaste": true,
         "editor.formatOnSave": true,
         "files.insertFinalNewline": true,
