@@ -25,7 +25,7 @@ npm install --global @devcontainers/cli
 
 devcontainer templates apply \
   --template-id ghcr.io/pinge/devcontainers/python3-node24:latest \
-  --template-args '{"python":"3.13"}' \
+  --template-args '{"python":"3.13", "agents": "claude,codex"}' \
   --workspace-folder .
 ```
 
@@ -34,11 +34,11 @@ or
 ```sh
 npx --yes --package @devcontainers/cli devcontainer templates apply \
   --template-id ghcr.io/pinge/devcontainers/python3-node24:latest \
-  --template-args '{"python":"3.13"}' \
+  --template-args '{"python":"3.13", "agents": "claude,codex"}' \
   --workspace-folder .
 ```
 
-`--template-args` can be omitted, `3.11` is the default Python version.
+Omit `--template-args` to use Python `3.13` and install every agent.
 
 ### 2. Using supporting tools
 
