@@ -57,9 +57,35 @@ jobs:
       - run: npm install --global @devcontainers/cli@0.89.0
       - run: bash tests/test-python3-node-24.sh "${{ matrix.python }}"
 
+  test-agents:
+    needs: [detect-changes]
+    if: needs.detect-changes.outputs.templates != '[]' && needs.detect-changes.outputs.templates != ''
+    timeout-minutes: 5
+    runs-on: ubuntu-24.04-arm
+    strategy:
+      fail-fast: false
+      matrix:
+        agents:
+          - claude
+          - codex
+          - muse
+          - claude,codex
+          - claude,muse
+          - codex,muse
+          - claude,codex,muse
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24
+      - run: npm install --global @devcontainers/cli@0.89.0
+      - run: bash tests/test-python3-node-24.sh "3.13" "${{ matrix.agents }}"
+
   publish:
     if: ((github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'workflow_dispatch') && needs.detect-changes.outputs.templates != '[]' && needs.detect-changes.outputs.templates != ''
-    needs: [detect-changes, test]
+    needs: [detect-changes, test, test-agents]
     timeout-minutes: 5
     runs-on: ubuntu-latest
     permissions:
