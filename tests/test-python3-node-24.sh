@@ -3,12 +3,35 @@ set -euo pipefail
 
 TEMPLATE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../src/python3-node24" && pwd)"
 TEMP_DIR="${TMPDIR:-/tmp}"
-PYTHON_IMAGE_VERSION="${1:-3.11}"
+PYTHON_IMAGE_VERSION="${1:-3.13}"
 case "$PYTHON_IMAGE_VERSION" in
   3.11|3.12|3.13|3.14|dev-3.15) ;;
   *) printf 'Unsupported Python version: %s\n' "$PYTHON_IMAGE_VERSION" >&2; exit 2 ;;
 esac
 EXPECTED_PYTHON="${PYTHON_IMAGE_VERSION#dev-}"
+if [[ "$#" -gt 2 ]]; then
+  printf 'Usage: %s [python-version [agent-list]]\n' "$0" >&2
+  exit 2
+fi
+AGENTS="${2:-}"
+INSTALL_CLAUDE=false
+INSTALL_CODEX=false
+INSTALL_MUSE=false
+if [[ -n "$AGENTS" ]]; then
+  if [[ "$AGENTS" == ,* || "$AGENTS" == *, || "$AGENTS" == *,,* ]]; then
+    printf 'Invalid agents: %s\n' "$AGENTS" >&2
+    exit 2
+  fi
+  IFS=',' read -r -a SELECTED_AGENTS <<< "$AGENTS"
+  for selected_agent in "${SELECTED_AGENTS[@]}"; do
+    case "$selected_agent" in
+      claude) INSTALL_CLAUDE=true ;;
+      codex) INSTALL_CODEX=true ;;
+      muse) INSTALL_MUSE=true ;;
+      *) printf 'Unknown agent: %s\n' "$selected_agent" >&2; exit 2 ;;
+    esac
+  done
+fi
 TEST_DIR="$(mktemp -d "${TEMP_DIR%/}/test-vsc-devcontainer-python3-node24-XXXXXX")"
 TEST_NAME="$(basename "$TEST_DIR" | tr '[:upper:]' '[:lower:]')"
 
@@ -153,6 +176,10 @@ DOCKERFILE="$TEST_DIR/.devcontainer/Dockerfile"
 DOCKERFILE_CONTENT="$(<"$DOCKERFILE")"
 DOCKERFILE_CONTENT="${DOCKERFILE_CONTENT//\$\{templateOption:python\}/$PYTHON_IMAGE_VERSION}"
 printf '%s\n' "$DOCKERFILE_CONTENT" > "$DOCKERFILE"
+DEVCONTAINER_JSON="$TEST_DIR/.devcontainer/devcontainer.json"
+DEVCONTAINER_CONTENT="$(<"$DEVCONTAINER_JSON")"
+DEVCONTAINER_CONTENT="${DEVCONTAINER_CONTENT//\$\{templateOption:agents\}/$AGENTS}"
+printf '%s\n' "$DEVCONTAINER_CONTENT" > "$DEVCONTAINER_JSON"
 # test dependency installation and host virtualenv isolation
 mkdir -p "$TEST_DIR/.venv"
 printf 'host venv\n' > "$TEST_DIR/.venv/host-marker"
@@ -163,8 +190,10 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = ["idna==3.10"]
 TOML
-mkdir -p "$TEST_DIR/.devcontainer/.claude"
-printf '{}\n' > "$TEST_DIR/.devcontainer/.claude/.claude.json"
+if [[ "$INSTALL_CLAUDE" == true ]]; then
+  mkdir -p "$TEST_DIR/.devcontainer/.claude"
+  printf '{}\n' > "$TEST_DIR/.devcontainer/.claude/.claude.json"
+fi
 devcontainer read-configuration --workspace-folder "$TEST_DIR" >/dev/null
 devcontainer build --workspace-folder "$TEST_DIR"
 devcontainer up --workspace-folder "$TEST_DIR"
@@ -179,7 +208,13 @@ EXPECTED_TZ="$(sed -n 's/^TZ=//p' "$TEST_DIR/.devcontainer/.env")"
 test -n "$EXPECTED_TZ"
 # assert runtime versions, virtualenv, configuration files, and symlinks
 assert_runtime() {
-  devcontainer exec --workspace-folder "$TEST_DIR" env "EXPECTED_TZ=$EXPECTED_TZ" "EXPECTED_PYTHON=$EXPECTED_PYTHON" bash -c '
+  devcontainer exec --workspace-folder "$TEST_DIR" env \
+    "EXPECTED_TZ=$EXPECTED_TZ" \
+    "EXPECTED_PYTHON=$EXPECTED_PYTHON" \
+    "EXPECTED_INSTALL_CLAUDE=$INSTALL_CLAUDE" \
+    "EXPECTED_INSTALL_CODEX=$INSTALL_CODEX" \
+    "EXPECTED_INSTALL_MUSE=$INSTALL_MUSE" \
+    bash -c '
 set -euo pipefail
 
 test "$(id -un)" = vscode
@@ -189,21 +224,43 @@ python -c "import os, sys; assert \".\".join(map(str, sys.version_info[:2])) == 
 node -e "if (Number(process.versions.node.split(\".\")[0]) !== 24) process.exit(1)"
 [[ "$(pdm --version)" == *2.29.3* ]]
 pdm run python -c "import idna, sys; assert idna.__version__ == \"3.10\"; assert sys.prefix.endswith(\"/.venv\")"
-command -v claude >/dev/null
-claude --version
-command -v codex >/dev/null
-codex --version
 [[ "$TZ" == "$EXPECTED_TZ" ]]
 
-workspace_root="$(cd "$CODEX_HOME/../.." && pwd)"
-test -L /home/vscode/.local/share/muse/sessions
-[[ "$(readlink -f /home/vscode/.local/share/muse/sessions)" == "$workspace_root/.devcontainer/.muse-data/sessions" ]]
-test -L /home/vscode/.claude.json
-[[ "$(readlink -f /home/vscode/.claude.json)" == "$workspace_root/.devcontainer/.claude/.claude.json" ]]
-cmp -s "$workspace_root/.devcontainer/claude/settings.json" "$CLAUDE_CONFIG_DIR/settings.json"
-sed "s|__WORKSPACE_ROOT__|$workspace_root|g" "$workspace_root/.devcontainer/codex/config.toml" | cmp -s - "$CODEX_HOME/config.toml"
-cmp -s "$workspace_root/.devcontainer/codex/rules/confirm-rm.rules" "$CODEX_HOME/rules/confirm-rm.rules"
-cmp -s "$workspace_root/.devcontainer/muse/settings.json" /home/vscode/.config/muse/settings.json
+workspace_root="$(pwd -P)"
+if [[ "$EXPECTED_INSTALL_CLAUDE" == true ]]; then
+  command -v claude >/dev/null
+  claude --version
+  test -L /home/vscode/.claude.json
+  [[ "$(readlink -f /home/vscode/.claude.json)" == "$workspace_root/.devcontainer/.claude/.claude.json" ]]
+  cmp -s "$workspace_root/.devcontainer/claude/settings.json" "$CLAUDE_CONFIG_DIR/settings.json"
+else
+  ! command -v claude >/dev/null 2>&1
+  [[ ! -e "$CLAUDE_CONFIG_DIR" && ! -L "$CLAUDE_CONFIG_DIR" ]]
+  [[ ! -L /home/vscode/.claude.json ]]
+fi
+
+if [[ "$EXPECTED_INSTALL_CODEX" == true ]]; then
+  command -v codex >/dev/null
+  codex --version
+  sed "s|__WORKSPACE_ROOT__|$workspace_root|g" "$workspace_root/.devcontainer/codex/config.toml" | cmp -s - "$CODEX_HOME/config.toml"
+  cmp -s "$workspace_root/.devcontainer/codex/rules/confirm-rm.rules" "$CODEX_HOME/rules/confirm-rm.rules"
+else
+  ! command -v codex >/dev/null 2>&1
+  [[ ! -e "$CODEX_HOME" && ! -L "$CODEX_HOME" ]]
+fi
+
+if [[ "$EXPECTED_INSTALL_MUSE" == true ]]; then
+  command -v muse >/dev/null
+  muse --version
+  test -L /home/vscode/.local/share/muse/sessions
+  [[ "$(readlink -f /home/vscode/.local/share/muse/sessions)" == "$workspace_root/.devcontainer/.muse-data/sessions" ]]
+  cmp -s "$workspace_root/.devcontainer/muse/settings.json" /home/vscode/.config/muse/settings.json
+else
+  ! command -v muse >/dev/null 2>&1
+  [[ ! -e "$workspace_root/.devcontainer/.muse-data" && ! -L "$workspace_root/.devcontainer/.muse-data" ]]
+  [[ ! -L /home/vscode/.local/share/muse/sessions ]]
+  [[ ! -e /home/vscode/.config/muse/settings.json ]]
+fi
 '
 }
 

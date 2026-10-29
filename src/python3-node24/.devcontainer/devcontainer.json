@@ -6,9 +6,15 @@
   "containerEnv": {
     "PDM_VENV_IN_PROJECT": "1",
     "PDM_IGNORE_SAVED_PYTHON": "1",
-    "DISABLE_AUTOUPDATER": "1"
+    "DISABLE_AUTOUPDATER": "1",
+    "INSTALL_AGENTS": "${templateOption:agents}"
   },
-  "initializeCommand": "bash \"${localWorkspaceFolder}/.devcontainer/initialize.sh\" \"${localWorkspaceFolder}\"",
+  "initializeCommand": [
+    "bash",
+    "${localWorkspaceFolder}/.devcontainer/initialize.sh",
+    "${localWorkspaceFolder}",
+    "${templateOption:agents}"
+  ],
   "runArgs": [
     "--env-file",
     "${localWorkspaceFolder}/.devcontainer/.env"
@@ -27,8 +33,7 @@
       "version": "24",
       "npmVersion": "latest"
     },
-    "ghcr.io/devcontainers/features/github-cli:1": {},
-    "ghcr.io/anthropics/devcontainer-features/claude-code:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {}
   },
   "customizations": {
     "vscode": {
@@ -73,6 +78,7 @@
           "**/.yarn": true,
           "**/.pnp.*": true
         },
+        "chat.disableAIFeatures": true,
         "github.copilot.editor.enableAutoCompletions": true,
         "github.copilot.advanced": {},
         "github.copilot.chat.startDebugging.enabled": false,
